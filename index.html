@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>아기 코끼리 덤보 달리기</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fdf3e1;
+    color: #3f3a4a;
+    font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    overflow-x: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app {
+    width: 100%;
+    max-width: 440px;
+    margin: 0 auto;
+    padding: 8px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  /* 점수 · 목숨 */
+  #hud {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .hud-box {
+    background: #fff;
+    border: 3px solid #d9cfe8;
+    border-radius: 14px;
+    padding: 4px 12px;
+    line-height: 1.1;
+  }
+  .hud-label { font-size: 14px; font-weight: 700; color: #7f7596; }
+  #score { font-size: 32px; font-weight: 900; }
+  #score small { font-size: 16px; color: #7f7596; font-weight: 700; }
+  #lives { display: flex; gap: 5px; margin-top: 4px; }
+  .life {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #ff5b6e; border: 2px solid #c93649;
+  }
+  .life.lost { background: #e6dcd2; border-color: #cbbfb3; }
+
+  /* 게임 화면 */
+  #stage {
+    position: relative;
+    width: min(100%, calc((100vh - 190px) * 360 / 440));
+    width: min(100%, calc((100dvh - 190px) * 360 / 440));
+    min-width: 240px;
+    aspect-ratio: 360 / 440;
+    border-radius: 18px;
+    overflow: hidden;
+    border: 3px solid #d9cfe8;
+    background: #bfe6ff;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: pointer;
+  }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 16px;
+    background: rgba(253, 243, 225, 0.94);
+    text-align: center;
+  }
+  .hidden { display: none !important; }
+  #poster {
+    width: 100%;
+    max-height: 72%;
+    object-fit: contain;
+    border-radius: 12px;
+  }
+  #posterFallback h1 { margin: 0 0 8px; font-size: 30px; }
+  #posterFallback p, .overlay p { margin: 0; font-size: 16px; line-height: 1.5; }
+  .overlay h2 { margin: 0; font-size: 32px; }
+  .big-btn {
+    font: inherit;
+    font-size: 24px;
+    font-weight: 900;
+    padding: 12px 36px;
+    border: none;
+    border-radius: 999px;
+    background: #7d6bd6;
+    color: #fff;
+    box-shadow: 0 5px 0 #5846ad;
+    cursor: pointer;
+  }
+  .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #5846ad; }
+
+  /* 클리어 영상: 화면 전체를 덮음 */
+  #clearLayer {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    background: #000;
+  }
+  #endingVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+  }
+  #clearPanel {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: #fff;
+    text-align: center;
+    padding: 16px;
+  }
+  #clearPanel.over-video { background: rgba(0, 0, 0, 0.45); }
+  #clearPanel h2 { margin: 0; font-size: 36px; }
+  #clearPanel p { margin: 0; font-size: 18px; }
+  #skipBtn {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    font: inherit;
+    font-size: 15px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 2px solid #fff;
+    background: rgba(0,0,0,0.4);
+    color: #fff;
+    cursor: pointer;
+  }
+
+  /* 아래 버튼 */
+  #controls {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+  }
+  #jumpBtn {
+    font: inherit;
+    font-size: 26px;
+    font-weight: 900;
+    color: #fff;
+    height: 68px;
+    border: none;
+    border-radius: 20px;
+    background: #7cc576;
+    box-shadow: 0 5px 0 #4f9a4a;
+    cursor: pointer;
+    touch-action: none;
+  }
+  #jumpBtn.pressed { transform: translateY(3px); box-shadow: 0 2px 0 #4f9a4a; background: #69b363; }
+  #musicBtn {
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    height: 52px;
+    padding: 0 12px;
+    border-radius: 14px;
+    border: 3px solid #d9cfe8;
+    background: #fff;
+    color: #3f3a4a;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div class="hud-box">
+      <div class="hud-label">점수</div>
+      <div id="score">0 <small>/ 300</small></div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">목숨 <span id="livesNum">5</span></div>
+      <div id="lives"></div>
+    </div>
+  </div>
+
+  <div id="stage">
+    <canvas id="game" width="360" height="440"></canvas>
+
+    <div id="startLayer" class="overlay">
+      <img id="poster" src="poster.png" alt="게임 포스터">
+      <div id="posterFallback" class="hidden">
+        <h1>아기 코끼리 덤보 달리기</h1>
+        <p>다가오는 자동차를 점프로 넘어요!<br>300점을 모으면 클리어!</p>
+      </div>
+      <button id="startBtn" class="big-btn" type="button">시작</button>
+    </div>
+
+    <div id="overLayer" class="overlay hidden">
+      <h2>게임 오버</h2>
+      <p>점수 <b id="finalScore">0</b>점</p>
+      <button id="retryBtn" class="big-btn" type="button">다시 하기</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="jumpBtn" type="button">점프!</button>
+    <button id="musicBtn" type="button">음악 끄기</button>
+  </div>
+</div>
+
+<div id="clearLayer" class="hidden">
+  <video id="endingVideo" src="ending.mp4" playsinline preload="auto"></video>
+  <div id="clearPanel" class="hidden">
+    <h2>클리어!</h2>
+    <p>자동차를 모두 넘었어요!</p>
+    <button id="clearRetryBtn" class="big-btn" type="button">다시 하기</button>
+  </div>
+  <button id="skipBtn" type="button" class="hidden">건너뛰기</button>
+</div>
+
+<audio id="music" src="music.mp3" loop preload="auto"></audio>
+
+<script>
+(function () {
+  'use strict';
+
+  // ===== 설정 (쉽게) =====
+  var W = 360, H = 440;
+  var MAX_LIVES = 5;
+  var POINTS_PER_SEC = 20;
+  var CLEAR_SCORE = 300;
+  var INVINCIBLE_TIME = 1.5;
+  var GROUND_Y = H - 70;       // 발이 닿는 땅 높이
+  var EL_X = 80;               // 코끼리 가로 위치
+  var GRAVITY = 1400;
+  var JUMP_V = 600;
+  var CAR_SPEED = 130;         // 자동차가 다가오는 속도 (px/초)
+  var JUMP_BUFFER = 0.12;      // 착지 직전에 눌러도 점프
+
+  // ===== 요소 =====
+  var canvas = document.getElementById('game');
+  var ctx = canvas.getContext('2d');
+  var scoreEl = document.getElementById('score');
+  var livesEl = document.getElementById('lives');
+  var livesNumEl = document.getElementById('livesNum');
+  var startLayer = document.getElementById('startLayer');
+  var overLayer = document.getElementById('overLayer');
+  var clearLayer = document.getElementById('clearLayer');
+  var clearPanel = document.getElementById('clearPanel');
+  var skipBtn = document.getElementById('skipBtn');
+  var finalScoreEl = document.getElementById('finalScore');
+  var poster = document.getElementById('poster');
+  var posterFallback = document.getElementById('posterFallback');
+  var music = document.getElementById('music');
+  var video = document.getElementById('endingVideo');
+  var musicBtn = document.getElementById('musicBtn');
+  var jumpBtn = document.getElementById('jumpBtn');
+
+  // ===== 미디어: 없거나 막혀도 그 기능만 건너뜀 =====
+  function showPosterFallback() {
+    poster.classList.add('hidden');
+    posterFallback.classList.remove('hidden');
+  }
+  poster.addEventListener('error', showPosterFallback);
+  if (poster.complete && poster.naturalWidth === 0) showPosterFallback();
+
+  var musicFailed = false;
+  var musicOn = true;
+  music.addEventListener('error', function () { musicFailed = true; });
+  if (music.error) musicFailed = true;
+  music.volume = 0.6;
+
+  var videoFailed = false;
+  video.addEventListener('error', function () {
+    videoFailed = true;
+    if (state === 'clear') showClearPanel(false);
+  });
+  if (video.error) videoFailed = true;
+  video.addEventListener('ended', function () { showClearPanel(true); });
+
+  function playMusic() {
+    if (!musicOn || musicFailed) return;
+    try {
+      var p = music.play();
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
+  function pauseMusic() {
+    try { music.pause(); } catch (e) {}
+  }
+  function updateMusicBtn() {
+    musicBtn.textContent = musicOn ? '음악 끄기' : '음악 켜기';
+  }
+  musicBtn.addEventListener('click', function () {
+    musicOn = !musicOn;
+    updateMusicBtn();
+    if (musicOn && state === 'playing') playMusic(); else pauseMusic();
+  });
+
+  // ===== 화면 선명도 =====
+  function fitCanvas() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 3);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  fitCanvas();
+  window.addEventListener('resize', function () { fitCanvas(); draw(); });
+
+  // ===== 게임 상태 =====
+  var state = 'ready'; // ready, playing, over, clear
+  var score, lives, invincible, cars, spawnDist, elapsed, scroll, runPhase, jumpQueued;
+  var el = { h: 0, vy: 0, onGround: true }; // h: 땅에서 떠 있는 높이
+  var clouds = [
+    { x: 50, y: 60, s: 1 }, { x: 230, y: 110, s: 0.8 }, { x: 340, y: 50, s: 0.7 }
+  ];
+  var hills = [{ x: 40, r: 70 }, { x: 210, r: 90 }, { x: 370, r: 60 }];
+
+  function resetGame() {
+    score = 0;
+    lives = MAX_LIVES;
+    invincible = 0;
+    cars = [];
+    spawnDist = 260;      // 첫 자동차가 오기까지 거리
+    elapsed = 0;
+    scroll = 0;
+    runPhase = 0;
+    jumpQueued = 0;
+    el.h = 0; el.vy = 0; el.onGround = true;
+    updateHud();
+  }
+
+  function startGame() {
+    resetGame();
+    startLayer.classList.add('hidden');
+    overLayer.classList.add('hidden');
+    hideClear();
+    state = 'playing';
+    playMusic();
+  }
+
+  function gameOver() {
+    state = 'over';
+    finalScoreEl.textContent = Math.floor(score);
+    overLayer.classList.remove('hidden');
+  }
+
+  function gameClear() {
+    state = 'clear';
+    score = CLEAR_SCORE;
+    updateHud();
+    clearLayer.classList.remove('hidden');
+    clearPanel.classList.add('hidden');
+    if (videoFailed) { showClearPanel(false); return; }
+    pauseMusic();
+    skipBtn.classList.remove('hidden');
+    try { video.currentTime = 0; } catch (e) {}
+    var p;
+    try { p = video.play(); } catch (e) { showClearPanel(false); return; }
+    if (p && p.catch) {
+      p.catch(function () {
+        // 소리 때문에 막혔으면 소리 없이 한 번 더 시도
+        video.muted = true;
+        var p2;
+        try { p2 = video.play(); } catch (e) { showClearPanel(false); return; }
+        if (p2 && p2.catch) p2.catch(function () { showClearPanel(false); });
+      });
+    }
+  }
+
+  function showClearPanel(overVideo) {
+    skipBtn.classList.add('hidden');
+    clearPanel.classList.toggle('over-video', !!overVideo);
+    clearPanel.classList.remove('hidden');
+    if (!overVideo) video.classList.add('hidden');
+  }
+
+  function hideClear() {
+    clearLayer.classList.add('hidden');
+    clearPanel.classList.add('hidden');
+    skipBtn.classList.add('hidden');
+    video.classList.remove('hidden');
+    try { video.pause(); } catch (e) {}
+    video.muted = false;
+  }
+
+  skipBtn.addEventListener('click', function () {
+    try { video.pause(); } catch (e) {}
+    showClearPanel(true);
+  });
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('retryBtn').addEventListener('click', startGame);
+  document.getElementById('clearRetryBtn').addEventListener('click', startGame);
+
+  // ===== 점수 · 목숨 표시 =====
+  for (var i = 0; i < MAX_LIVES; i++) {
+    var d = document.createElement('span');
+    d.className = 'life';
+    livesEl.appendChild(d);
+  }
+  var lastShownScore = -1, lastShownLives = -1;
+  function updateHud() {
+    var s = Math.floor(score);
+    if (s !== lastShownScore) {
+      scoreEl.innerHTML = s + ' <small>/ ' + CLEAR_SCORE + '</small>';
+      lastShownScore = s;
+    }
+    if (lives !== lastShownLives) {
+      livesNumEl.textContent = lives;
+      var dots = livesEl.children;
+      for (var i = 0; i < dots.length; i++) dots[i].classList.toggle('lost', i >= lives);
+      lastShownLives = lives;
+    }
+  }
+
+  // ===== 조작: 점프 (키보드, 아래 버튼, 화면 탭) =====
+  function jump() {
+    if (state !== 'playing') return;
+    if (el.onGround) {
+      el.vy = JUMP_V;
+      el.onGround = false;
+      jumpQueued = 0;
+    } else {
+      jumpQueued = JUMP_BUFFER;
+    }
+  }
+  window.addEventListener('keydown', function (e) {
+    if (e.key === ' ' || e.code === 'Space' || e.key === 'ArrowUp') {
+      if (state === 'playing') {
+        e.preventDefault();
+        if (!e.repeat) jump();
+      }
+    }
+  });
+  jumpBtn.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    jumpBtn.classList.add('pressed');
+    jump();
+  });
+  function releaseJumpBtn() { jumpBtn.classList.remove('pressed'); }
+  jumpBtn.addEventListener('pointerup', releaseJumpBtn);
+  jumpBtn.addEventListener('pointercancel', releaseJumpBtn);
+  jumpBtn.addEventListener('pointerleave', releaseJumpBtn);
+  jumpBtn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  canvas.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    jump();
+  });
+
+  // ===== 자동차 =====
+  var CAR_W = 84, CAR_H = 38;
+  var COLORS = ['#e8505b', '#4a90d9', '#f2b632', '#4cae7a'];
+  var carColorIdx = 0;
+  function spawnCar() {
+    cars.push({ x: W + CAR_W, color: COLORS[carColorIdx++ % COLORS.length], wheel: 0 });
+  }
+
+  // 부딪힘 판정: 그림보다 작게 (코끼리 가로 26, 자동차 가로 50)
+  function hitTest(c) {
+    var eL = EL_X - 13, eR = EL_X + 13;
+    var eB = GROUND_Y - el.h - 6, eT = GROUND_Y - el.h - 46;
+    var cL = c.x - 25, cR = c.x + 25;
+    var cT = GROUND_Y - 30, cB = GROUND_Y;
+    return eR > cL && eL < cR && eB > cT && eT < cB;
+  }
+
+  // ===== 업데이트 =====
+  function update(dt) {
+    elapsed += dt;
+    scroll += CAR_SPEED * dt;
+    runPhase += dt * 9;
+
+    // 점프 물리
+    if (!el.onGround) {
+      el.vy -= GRAVITY * dt;
+      el.h += el.vy * dt;
+      if (el.h <= 0) {
+        el.h = 0; el.vy = 0; el.onGround = true;
+        if (jumpQueued > 0) { jumpQueued = 0; el.vy = JUMP_V; el.onGround = false; }
+      }
+    }
+    if (jumpQueued > 0) jumpQueued -= dt;
+
+    // 자동차 만들기 (간격 넓게)
+    spawnDist -= CAR_SPEED * dt;
+    if (spawnDist <= 0) {
+      spawnCar();
+      spawnDist = 340 + Math.random() * 140;
+    }
+
+    // 자동차 이동 + 부딪힘
+    for (var i = cars.length - 1; i >= 0; i--) {
+      var c = cars[i];
+      c.x -= CAR_SPEED * dt;
+      c.wheel += dt * 8;
+      if (c.x < -CAR_W) { cars.splice(i, 1); continue; }
+      if (invincible <= 0 && hitTest(c)) {
+        lives--;
+        invincible = INVINCIBLE_TIME;
+        if (lives <= 0) { lives = 0; updateHud(); gameOver(); return; }
+      }
+    }
+    if (invincible > 0) invincible -= dt;
+
+    // 점수
+    score += POINTS_PER_SEC * dt;
+    if (score >= CLEAR_SCORE) { gameClear(); return; }
+    updateHud();
+  }
+
+  // ===== 그리기 =====
+  function drawBackground() {
+    var g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+    g.addColorStop(0, '#9fd8ff');
+    g.addColorStop(1, '#e3f5ff');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // 구름 (천천히 흐름)
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    for (var i = 0; i < clouds.length; i++) {
+      var cl = clouds[i];
+      var cx = ((cl.x - scroll * 0.15) % (W + 120) + (W + 120)) % (W + 120) - 60;
+      ctx.beginPath();
+      ctx.arc(cx, cl.y, 20 * cl.s, 0, Math.PI * 2);
+      ctx.arc(cx + 22 * cl.s, cl.y - 8 * cl.s, 24 * cl.s, 0, Math.PI * 2);
+      ctx.arc(cx + 46 * cl.s, cl.y, 18 * cl.s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 먼 언덕
+    ctx.fillStyle = '#b9e3a8';
+    for (var j = 0; j < hills.length; j++) {
+      var h = hills[j];
+      var hx = ((h.x - scroll * 0.3) % (W + 200) + (W + 200)) % (W + 200) - 100;
+      ctx.beginPath();
+      ctx.arc(hx, GROUND_Y + 10, h.r, Math.PI, 0);
+      ctx.fill();
+    }
+
+    // 도로
+    ctx.fillStyle = '#6d6a75';
+    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+    ctx.fillStyle = '#8fd17f';
+    ctx.fillRect(0, GROUND_Y - 4, W, 4);
+    // 흐르는 차선
+    ctx.fillStyle = '#f5ecd0';
+    var period = 70;
+    var off = scroll % period;
+    for (var x = -off; x < W; x += period) {
+      ctx.fillRect(x, GROUND_Y + 34, 36, 5);
+    }
+  }
+
+  // dumbo.png 가 있으면 그 그림을 쓰고, 없으면 아래 캔버스 그림(아기 코끼리 덤보)을 써요
+  var DUMBO_FLIP = false;   // 그림 속 덤보가 왼쪽을 보고 있으면 true
+  var DUMBO_H = 78;         // 화면에 그릴 키(px)
+  var dumboImg = new Image();
+  var dumboOk = false;
+  dumboImg.addEventListener('load', function () { dumboOk = dumboImg.naturalWidth > 0; });
+  dumboImg.addEventListener('error', function () { dumboOk = false; });
+  dumboImg.src = 'dumbo.png';
+
+  function drawDumboImage(x, footY, airborne, phase) {
+    var h = DUMBO_H;
+    var w = h * dumboImg.naturalWidth / dumboImg.naturalHeight;
+    var bob = airborne ? 0 : Math.abs(Math.sin(phase)) * -3;
+    ctx.save();
+    ctx.translate(x, footY + bob);
+    if (DUMBO_FLIP) ctx.scale(-1, 1);
+    ctx.drawImage(dumboImg, -w / 2, -h, w, h);
+    ctx.restore();
+  }
+
+  function drawElephant(x, footY, phase, airborne) {
+    if (dumboOk) { drawDumboImage(x, footY, airborne, phase); return; }
+
+    var body = '#b9c6e2', bodyDark = '#8c9ac0', line = '#5b6791', pink = '#f7b5c8';
+    ctx.save();
+    ctx.translate(x, footY);
+    var bob = airborne ? 0 : Math.abs(Math.sin(phase)) * -2.5;
+    ctx.translate(0, bob);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = line;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    // 다리 (달릴 때 번갈아)
+    var s1 = airborne ? 0.6 : Math.sin(phase);
+    var s2 = airborne ? -0.6 : -Math.sin(phase);
+    function leg(lx, s, col) {
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.moveTo(lx - 6, -18);
+      ctx.lineTo(lx - 6 + s * 7, -3);
+      ctx.quadraticCurveTo(lx + s * 7, 1, lx + 6 + s * 7, -3);
+      ctx.lineTo(lx + 6, -18);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+    leg(-14, s2, bodyDark);
+    leg(10, s1, bodyDark);
+
+    // 꼬리
+    ctx.beginPath();
+    ctx.moveTo(-26, -32);
+    ctx.quadraticCurveTo(-38, -30, -35, -18);
+    ctx.stroke();
+    ctx.fillStyle = bodyDark;
+    ctx.beginPath();
+    ctx.arc(-35, -17, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 몸 (통통하게)
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.ellipse(-2, -29, 27, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 앞다리
+    leg(14, s2, body);
+    leg(-10, s1, body);
+
+    // 머리 (아기라서 크게)
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(24, -46, 19, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 코 (짧고 귀엽게 말려 올라감)
+    ctx.lineWidth = 11;
+    ctx.strokeStyle = line;
+    ctx.beginPath();
+    ctx.moveTo(38, -42);
+    ctx.quadraticCurveTo(52, -34, 47, -22);
+    ctx.stroke();
+    ctx.lineWidth = 6.5;
+    ctx.strokeStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(38, -42);
+    ctx.quadraticCurveTo(52, -34, 47, -22);
+    ctx.stroke();
+
+    // 큰 귀 (덤보!) — 날 때는 펄럭펄럭
+    var flap = airborne ? Math.sin(phase * 2.2) * 0.35 : Math.sin(phase * 0.5) * 0.08;
+    ctx.save();
+    ctx.translate(12, -48);
+    ctx.rotate(-0.25 + flap);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = line;
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(0, -8);
+    ctx.bezierCurveTo(-8, -26, -40, -22, -38, 6);
+    ctx.bezierCurveTo(-36, 28, -8, 30, 2, 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = pink;
+    ctx.beginPath();
+    ctx.moveTo(-3, -2);
+    ctx.bezierCurveTo(-8, -14, -28, -12, -27, 6);
+    ctx.bezierCurveTo(-26, 19, -9, 20, -2, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // 볼
+    ctx.fillStyle = 'rgba(247,150,175,0.65)';
+    ctx.beginPath();
+    ctx.ellipse(32, -39, 4.5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 눈 (크고 반짝)
+    ctx.fillStyle = '#2b2b3a';
+    ctx.beginPath();
+    ctx.ellipse(30, -50, 3.6, 4.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(31.2, -52, 1.5, 0, Math.PI * 2);
+    ctx.arc(29, -48.4, 0.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 앞머리 한 가닥
+    ctx.strokeStyle = line;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(22, -64);
+    ctx.quadraticCurveTo(26, -72, 31, -66);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawCar(c) {
+    var x = c.x, y = GROUND_Y;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#33303c';
+    ctx.lineJoin = 'round';
+
+    // 차체
+    ctx.fillStyle = c.color;
+    ctx.beginPath();
+    ctx.moveTo(-42, -8);
+    ctx.lineTo(-42, -22);
+    ctx.lineTo(-28, -26);
+    ctx.lineTo(-20, -40);
+    ctx.lineTo(16, -40);
+    ctx.lineTo(28, -26);
+    ctx.lineTo(42, -22);
+    ctx.lineTo(42, -8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 창문
+    ctx.fillStyle = '#d6f0ff';
+    ctx.beginPath();
+    ctx.moveTo(-16, -36); ctx.lineTo(-6, -36); ctx.lineTo(-6, -27); ctx.lineTo(-23, -27);
+    ctx.closePath();
+    ctx.moveTo(-1, -36); ctx.lineTo(13, -36); ctx.lineTo(22, -27); ctx.lineTo(-1, -27);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 헤드라이트 (왼쪽이 앞)
+    ctx.fillStyle = '#fff2a8';
+    ctx.beginPath();
+    ctx.arc(-38, -17, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 바퀴
+    function wheel(wx) {
+      ctx.save();
+      ctx.translate(wx, -6);
+      ctx.rotate(c.wheel);
+      ctx.fillStyle = '#33303c';
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#c9c6d0';
+      ctx.beginPath();
+      ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#33303c';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-4, 0); ctx.lineTo(4, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+    wheel(-24);
+    wheel(24);
+
+    ctx.restore();
+  }
+
+  function draw() {
+    drawBackground();
+    if (!cars) return;
+    for (var i = 0; i < cars.length; i++) drawCar(cars[i]);
+    // 무적일 때 깜빡임
+    var blinkHide = invincible > 0 && Math.floor(invincible * 10) % 2 === 0;
+    if (!blinkHide) drawElephant(EL_X, GROUND_Y - el.h, runPhase, !el.onGround);
+  }
+
+  // ===== 반복 =====
+  var last = performance.now();
+  function loop(now) {
+    var dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    if (state === 'playing') update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  updateMusicBtn();
+  resetGame();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
