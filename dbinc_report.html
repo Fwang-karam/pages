@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DB Inc 실적 보고서</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1d2330; --muted:#6b7280; --line:#e5e7eb; --accent:#0b6e4f; --accent2:#2f6fd6; --warn:#b45309; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; line-height:1.6; }
+  .wrap { max-width:980px; margin:0 auto; padding:32px 16px 64px; }
+  header { border-bottom:2px solid var(--text); padding-bottom:12px; margin-bottom:24px; }
+  h1 { margin:0; font-size:28px; }
+  .sub { color:var(--muted); font-size:14px; }
+  .note { background:#fff7ed; border-left:4px solid var(--warn); padding:10px 14px; font-size:13px; margin-bottom:24px; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:24px; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .kpi .label { font-size:13px; color:var(--muted); }
+  .kpi .val { font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .kpi .delta { font-size:13px; color:var(--accent); }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:20px; }
+  h2 { font-size:18px; margin:0 0 12px; }
+  .chart { position:relative; height:300px; }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums; }
+  th, td { padding:8px; border-bottom:1px solid var(--line); text-align:right; }
+  th:first-child, td:first-child { text-align:left; }
+  th { background:#f3f4f6; }
+  ul { margin:0; padding-left:20px; }
+  footer { color:var(--muted); font-size:12px; text-align:center; margin-top:24px; }
+  @media print { body { background:#fff; } section, .kpi { break-inside:avoid; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>DB Inc 실적 동향 보고서</h1>
+    <div class="sub">2021 ~ 2025 연간 실적 및 2026년 분기 추이 · 작성일 2026-10-22</div>
+  </header>
+
+  <div class="note">※ 본 보고서의 수치는 실제 공시 자료가 아닌 <b>대략적인 예시(추정) 수치</b>입니다. 실제 보고 시에는 DART 공시 자료로 교체하세요.</div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">2025 매출액</div><div class="val">4,200억</div><div class="delta">▲ 6.3% YoY</div></div>
+    <div class="kpi"><div class="label">2025 영업이익</div><div class="val">265억</div><div class="delta">▲ 10.4% YoY</div></div>
+    <div class="kpi"><div class="label">2025 영업이익률</div><div class="val">6.3%</div><div class="delta">▲ 0.2%p</div></div>
+    <div class="kpi"><div class="label">5년 매출 CAGR</div><div class="val">8.3%</div><div class="delta">2021→2025</div></div>
+  </div>
+
+  <section>
+    <h2>1. 연간 매출액 · 영업이익 추이</h2>
+    <div class="chart"><canvas id="annual"></canvas></div>
+  </section>
+
+  <div class="grid2">
+    <section>
+      <h2>2. 영업이익률 추이</h2>
+      <div class="chart"><canvas id="margin"></canvas></div>
+    </section>
+    <section>
+      <h2>3. 2025 사업부문별 매출 비중</h2>
+      <div class="chart"><canvas id="segment"></canvas></div>
+    </section>
+  </div>
+
+  <section>
+    <h2>4. 2026년 분기별 실적</h2>
+    <div class="chart"><canvas id="quarter"></canvas></div>
+  </section>
+
+  <section>
+    <h2>5. 연간 실적 요약표 (단위: 억원)</h2>
+    <table>
+      <thead><tr><th>구분</th><th>2021</th><th>2022</th><th>2023</th><th>2024</th><th>2025</th></tr></thead>
+      <tbody id="tbl"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>6. 종합 의견</h2>
+    <ul>
+      <li>매출은 SI·클라우드 전환 수요에 힘입어 5년간 꾸준한 성장세를 유지.</li>
+      <li>영업이익률은 고마진 클라우드/AI 사업 비중 확대로 점진적으로 개선.</li>
+      <li>2026년은 3분기까지 전년 대비 성장 흐름이 이어지고 있으며, 4분기 계절적 성수기 효과가 기대됨.</li>
+      <li>리스크: 그룹사 의존도, 인건비 상승, 대외 IT 투자 경기 둔화.</li>
+    </ul>
+  </section>
+
+  <footer>DB Inc 실적 보고서 · 예시 데이터 기반</footer>
+</div>
+
+<script>
+const years = ['2021','2022','2023','2024','2025'];
+const revenue = [3050, 3450, 3700, 3950, 4200];
+const op = [150, 190, 210, 240, 265];
+const margin = op.map((v,i) => +(v / revenue[i] * 100).toFixed(1));
+const net = [110, 135, 150, 175, 195];
+
+Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+Chart.defaults.maintainAspectRatio = false;
+
+new Chart(document.getElementById('annual'), {
+  data: {
+    labels: years,
+    datasets: [
+      { type:'bar', label:'매출액(억원)', data:revenue, backgroundColor:'#2f6fd6', yAxisID:'y' },
+      { type:'line', label:'영업이익(억원)', data:op, borderColor:'#0b6e4f', backgroundColor:'#0b6e4f', yAxisID:'y1', tension:0.3 }
+    ]
+  },
+  options: { scales: {
+    y: { position:'left', title:{display:true,text:'매출액'} },
+    y1:{ position:'right', grid:{drawOnChartArea:false}, title:{display:true,text:'영업이익'} }
+  } }
+});
+
+new Chart(document.getElementById('margin'), {
+  type:'line',
+  data:{ labels:years, datasets:[{ label:'영업이익률(%)', data:margin, borderColor:'#b45309', backgroundColor:'rgba(180,83,9,.12)', fill:true, tension:0.3 }] },
+  options:{ scales:{ y:{ suggestedMin:4, suggestedMax:7 } } }
+});
+
+new Chart(document.getElementById('segment'), {
+  type:'doughnut',
+  data:{ labels:['SI/SM','클라우드','AI·데이터','기타'], datasets:[{ data:[55,25,12,8], backgroundColor:['#2f6fd6','#0b6e4f','#b45309','#9ca3af'] }] },
+  options:{ plugins:{ legend:{ position:'right' } } }
+});
+
+new Chart(document.getElementById('quarter'), {
+  type:'bar',
+  data:{ labels:['1Q25','2Q25','3Q25','4Q25','1Q26','2Q26','3Q26'],
+    datasets:[
+      { label:'매출액(억원)', data:[980,1020,1040,1160,1050,1090,1120], backgroundColor:'#2f6fd6' },
+      { label:'영업이익(억원)', data:[58,64,66,77,64,70,74], backgroundColor:'#0b6e4f' }
+    ] }
+});
+
+const rows = [['매출액',revenue],['영업이익',op],['당기순이익',net],['영업이익률(%)',margin]];
+document.getElementById('tbl').innerHTML = rows.map(([k,v]) =>
+  `<tr><td>${k}</td>${v.map(x=>`<td>${x.toLocaleString()}</td>`).join('')}</tr>`).join('');
+</script>
+</body>
+</html>
